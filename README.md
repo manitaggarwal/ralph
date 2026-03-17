@@ -131,6 +131,23 @@ Ralph burns through tokens. Running this setup continuously requires a Max20 pla
 - `RALPH.md` - Instructions for each "engineer" session
 - `skills/ralph-pm/SKILL.md` - The product manager skill
 
+## Changelog
+
+### 2026-03-17
+
+Improvements from 2 months of production use on a real project.
+
+**ralph.sh:**
+- Ctrl-C now works properly. Added cleanup trap that tracks and kills the Claude process on interrupt.
+- Switched from pipe to FIFO-based streaming. Bash pipes block signals, so Ctrl-C was unreliable. The FIFO lets claude run as a tracked background process that the trap can actually kill.
+- Added `--chrome` flag for headless browser access during verification.
+- Now handles the `result` message type from Claude CLI stream-json output (final success/error status was being silently dropped).
+- Unicode symbols replace ASCII for cleaner terminal output.
+
+**RALPH.md:**
+- Added "Permission Denied Errors" section. Agents in `acceptEdits` mode hit permission walls and retry forever. Now: after 3+ denials, block the bead and move on.
+- Added `bd sync` step before exit signal. Without this, completed beads weren't reaching the PM layer.
+
 ## Related
 
 - [Beads](https://github.com/steveyegge/beads) - Task management for agents

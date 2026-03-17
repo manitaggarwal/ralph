@@ -23,12 +23,12 @@ You MUST handle the in-progress bead before starting new work. Don't assume the 
 
 **Assess the situation:**
 
-| Working Tree | Tests | What Happened | Action |
-|-------------|-------|---------------|--------|
-| Clean | Pass | Previous engineer finished but didn't close | Verify the work, then close the bead |
-| Clean | Fail | Previous engineer broke something | Fix the failing tests, then close |
-| Dirty | Pass | Work in progress, tests passing | Review changes, complete work, close |
-| Dirty | Fail | Work in progress, tests failing | Read comments for context, fix or redo |
+| Working Tree | Tests | What Happened                               | Action                                 |
+| ------------ | ----- | ------------------------------------------- | -------------------------------------- |
+| Clean        | Pass  | Previous engineer finished but didn't close | Verify the work, then close the bead   |
+| Clean        | Fail  | Previous engineer broke something           | Fix the failing tests, then close      |
+| Dirty        | Pass  | Work in progress, tests passing             | Review changes, complete work, close   |
+| Dirty        | Fail  | Work in progress, tests failing             | Read comments for context, fix or redo |
 
 **Before assuming work is done:**
 - Read bead comments - they may indicate the work failed or needs rework
@@ -59,7 +59,7 @@ You MUST handle the in-progress bead before starting new work. Don't assume the 
 
 ### 3. Make It Pass
 - Write the minimal code to make the test pass
-- Keep it simple - only what the bead requires
+- Keep it simple — only what the bead requires
 - Run tests and confirm it passes
 
 ### 4. Refactor
@@ -84,6 +84,15 @@ If you cannot proceed due to unclear requirements OR tooling/technical issues:
 3. Move on to the next available bead from `bd ready`, or exit if none
 
 The PM will be notified and can unblock the bead once the issue is resolved.
+
+### Permission Denied Errors
+
+If multiple tool calls are being denied due to permissions (e.g. Bash commands blocked, browser tools unavailable):
+
+1. **Don't keep retrying** - if 3+ actions are denied, this bead likely needs interactive mode
+2. Block the bead: `bd update <id> --status blocked --add-label needs-info`
+3. Add a comment explaining what permissions are needed: `bd comments add <id> "Blocked: needs interactive session to fix permissions. Required: [list denied actions]."`
+4. Move on to the next available bead from `bd ready`, or exit if none
 
 ### Creative/Product Decisions
 
@@ -143,7 +152,8 @@ Before closing, answer these questions:
    - If the bead was updated AFTER you started (requirements changed), do NOT close it. Commit your work and exit so the next engineer can pick up the updated requirements.
    - If the bead was NOT updated, close it: `bd close <id>`
 7. Commit all changes
-8. **Exit with message: RALPH_DONE**
+8. Run `bd sync` to push bead changes to remote
+9. **Exit with message: RALPH_DONE**
 
 ## Exit Signal
 
