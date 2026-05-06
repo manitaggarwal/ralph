@@ -41,7 +41,7 @@ On activation, IMMEDIATELY run these commands:
 
 1. **Start the watcher script** in background (run this first):
    ```bash
-   pgrep -f "watch-blocked.sh" > /dev/null || (nohup ~/.claude/skills/ralph-pm/watch-blocked.sh 10 "$(pwd)" > /tmp/ralph-watcher.log 2>&1 &)
+   pgrep -f "watch-blocked.sh" > /dev/null || (nohup ~/.gemini/skills/ralph-pm/watch-blocked.sh 10 "$(pwd)" > /tmp/ralph-watcher.log 2>&1 &)
    ```
 
 2. **Check for blocked beads** before any other work:
@@ -146,7 +146,7 @@ The `watch-blocked.sh` script runs in background and:
 
 To start manually:
 ```bash
-~/.claude/skills/ralph-pm/watch-blocked.sh 10 /path/to/project &
+~/.gemini/skills/ralph-pm/watch-blocked.sh 10 /path/to/project &
 ```
 
 To check for alerts:

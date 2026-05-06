@@ -6,11 +6,11 @@
 
 set -e
 
-# Track claude PID so we can kill it on Ctrl-C
-CLAUDE_PID=""
+# Track gemini PID so we can kill it on Ctrl-C
+GEMINI_PID=""
 cleanup() {
     echo -e "\n${RED}✗${NC} Interrupted"
-    [ -n "$CLAUDE_PID" ] && kill "$CLAUDE_PID" 2>/dev/null
+    [ -n "$GEMINI_PID" ] && kill "$GEMINI_PID" 2>/dev/null
     exit 130
 }
 trap cleanup INT TERM
@@ -73,87 +73,78 @@ while [ $ITERATION -lt $MAX_ITERATIONS ]; do
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
 
-    echo -e "${BLUE}› Spawning Claude engineer...${NC}"
+    echo -e "${BLUE}› Spawning Gemini engineer...${NC}"
     echo ""
 
     # Stream output with clean formatting.
-    # Uses a FIFO so claude runs as a tracked background process. This lets
+    # Uses a FIFO so gemini runs as a tracked background process. This lets
     # the trap handler kill it on Ctrl-C (bash's `read` builtin blocks signals
-    # but the cleanup trap fires between reads when claude is killed).
+    # but the cleanup trap fires between reads when gemini is killed).
     FIFO=$(mktemp -u /tmp/ralph-fifo-XXXXXX)
     mkfifo "$FIFO"
 
-    claude --chrome --permission-mode acceptEdits --verbose --print "Read @RALPH.md and follow the instructions. Pick up where the last engineer left off. Complete ONE bead." --output-format stream-json > "$FIFO" 2>/dev/null &
-    CLAUDE_PID=$!
+    gemini --prompt "Read RALPH.md and follow the instructions. Pick up where the last engineer left off. Complete ONE bead." --approval-mode yolo --output-format stream-json > "$FIFO" 2>/dev/null &
+    GEMINI_PID=$!
 
+    LAST_WAS_MESSAGE=false
     while read -r line; do
         type=$(echo "$line" | jq -r '.type // empty' 2>/dev/null)
-        if [ "$type" = "assistant" ]; then
-            # Show text
-            echo "$line" | jq -r '.message.content[]? | select(.type == "text") | .text' 2>/dev/null | while IFS= read -r text; do
-                [ -z "$text" ] && continue
-                echo -e "${BLUE}▸${NC} $text"
-            done
-            # Show tool calls concisely: → tool_name { inputs }
-            echo "$line" | jq -c '.message.content[]? | select(.type == "tool_use")' 2>/dev/null | while read -r tool; do
-                [ -z "$tool" ] && continue
-                name=$(echo "$tool" | jq -r '.name' 2>/dev/null)
-                input=$(echo "$tool" | jq -c '.input' 2>/dev/null)
-                echo -e "${YELLOW}→${NC} ${CYAN}$name${NC} ${DIM}$input${NC}"
-            done
-        elif [ "$type" = "user" ]; then
-            # Show tool results cleanly
-            echo "$line" | jq -c '.message.content[]? | select(.type == "tool_result")' 2>/dev/null | while read -r result; do
-                [ -z "$result" ] && continue
-                is_error=$(echo "$result" | jq -r '.is_error // false' 2>/dev/null)
-                # Extract and clean content
-                content=$(echo "$result" | jq -r '
-                    .content |
-                    if type == "array" then
-                        map(select(.type == "text") | .text) | join("\n")
-                    elif type == "string" then
-                        .
-                    else
-                        "..."
-                    end
-                ' 2>/dev/null | tr -d '\r' | head -n 20)
-                # Truncate if contains base64 image data
-                if echo "$content" | grep -q '/9j/4AAQ\|data:image'; then
-                    content="[image captured]"
+        
+        if [ "$type" = "message" ]; then
+            role=$(echo "$line" | jq -r '.role // empty' 2>/dev/null)
+            if [ "$role" = "assistant" ]; then
+                content=$(echo "$line" | jq -r '.content // empty' 2>/dev/null)
+                if [ -n "$content" ] && [ "$content" != "null" ]; then
+                    if [ "$LAST_WAS_MESSAGE" = false ]; then
+                        printf "${BLUE}▸${NC} "
+                    fi
+                    printf "%s" "$content"
+                    LAST_WAS_MESSAGE=true
                 fi
-                # Format line numbers: replace →  with spaces, dim the line numbers
-                formatted=$(echo "$content" | sed -E "s/^([[:space:]]*[0-9]+)→/\x1b[2m\1\x1b[0m  /")
-                if [ "$is_error" = "true" ]; then
-                    echo ""
-                    echo -e "${RED}✗${NC}"
-                    echo -e "$formatted"
-                else
-                    echo ""
-                    echo -e "${DIM}○${NC}"
-                    echo -e "$formatted"
-                fi
-            done
-        elif [ "$type" = "result" ]; then
-            # Handle final result from Claude CLI
-            subtype=$(echo "$line" | jq -r '.subtype // empty' 2>/dev/null)
-            result_text=$(echo "$line" | jq -r '.result // empty' 2>/dev/null)
-            if [ "$subtype" = "success" ] && [ -n "$result_text" ]; then
-                echo ""
-                echo -e "${GREEN}✓${NC} $result_text"
-            elif [ "$subtype" = "error" ]; then
-                echo ""
-                echo -e "${RED}✗${NC} $result_text"
-            else
-                echo -e "${DIM}? $line${NC}"
             fi
-        elif [ "$type" != "system" ]; then
-            echo -e "${DIM}? $line${NC}"
+            continue
+        fi
+
+        if [ "$LAST_WAS_MESSAGE" = true ]; then
+            echo ""
+            LAST_WAS_MESSAGE=false
+        fi
+
+        if [ "$type" = "tool_use" ]; then
+            name=$(echo "$line" | jq -r '.tool_name' 2>/dev/null)
+            input=$(echo "$line" | jq -c '.parameters' 2>/dev/null)
+            echo -e "${YELLOW}→${NC} ${CYAN}$name${NC} ${DIM}$input${NC}"
+        elif [ "$type" = "tool_result" ]; then
+            status=$(echo "$line" | jq -r '.status' 2>/dev/null)
+            output=$(echo "$line" | jq -r '.output // empty' 2>/dev/null | tr -d '\r' | head -n 20)
+            if echo "$output" | grep -q '/9j/4AAQ\|data:image'; then
+                output="[image captured]"
+            fi
+            formatted=$(echo "$output" | sed -E "s/^([[:space:]]*[0-9]+)→/\x1b[2m\1\x1b[0m  /")
+            if [ "$status" = "error" ]; then
+                echo ""
+                echo -e "${RED}✗${NC}"
+                echo -e "$formatted"
+            else
+                echo ""
+                echo -e "${DIM}○${NC}"
+                echo -e "$formatted"
+            fi
+        elif [ "$type" = "result" ]; then
+            status=$(echo "$line" | jq -r '.status // empty' 2>/dev/null)
+            if [ "$status" = "success" ]; then
+                echo ""
+                echo -e "${GREEN}✓${NC} Success"
+            elif [ "$status" = "error" ]; then
+                echo ""
+                echo -e "${RED}✗${NC} Error"
+            fi
         fi
     done < "$FIFO"
 
     rm -f "$FIFO"
-    wait "$CLAUDE_PID" 2>/dev/null || true
-    CLAUDE_PID=""
+    wait "$GEMINI_PID" 2>/dev/null || true
+    GEMINI_PID=""
 
     echo ""
     echo -e "${GREEN}✓${NC} Iteration $ITERATION complete"

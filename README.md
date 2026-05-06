@@ -1,19 +1,19 @@
 # Ralph
 
-A simple autonomous engineering loop for Claude Code. Named after Ralph Wiggum because [dumber methods win](https://www.chrismdp.com/your-agent-orchestrator-is-too-clever/).
+A simple autonomous engineering loop for Gemini CLI. Named after Ralph Wiggum because [dumber methods win](https://www.chrismdp.com/your-agent-orchestrator-is-too-clever/).
 
 ![Ralph in action](ralph-two-layer-setup.png)
 
 [Read the blog post](https://www.chrismdp.com/running-ralph-in-production/)
 
-Ralph treats each Claude session as one engineer in a relay team. Each picks up where the last left off, completes ONE task, commits, and exits. The bash loop spawns the next engineer.
+Ralph treats each Gemini session as one engineer in a relay team. Each picks up where the last left off, completes ONE task, commits, and exits. The bash loop spawns the next engineer.
 
 ## Why Ralph?
 
-Complex agent orchestrators encode assumptions about how work should flow. Ralph encodes almost nothing. It just runs Claude in a loop and lets the model figure out what to do next.
+Complex agent orchestrators encode assumptions about how work should flow. Ralph encodes almost nothing. It just runs Gemini in a loop and lets the model figure out what to do next.
 
 This works because:
-- Modern models (Opus 4.5, GPT 5.2) are good enough to handle reasonable tasks without elaborate guardrails
+- Modern models (Gemini 2.0 Pro/Flash) are good enough to handle reasonable tasks without elaborate guardrails
 - Files and git commits carry state between sessions, not conversation history
 - Failures are predictable because the prompt never changes
 - The model can break large tasks into smaller ones when needed
@@ -22,7 +22,7 @@ Read more: [Ralph Loops: Your Agent Orchestrator Is Too Clever](https://www.chri
 
 ## Prerequisites
 
-- [Claude Code](https://claude.ai/code) CLI installed and authenticated
+- [Gemini CLI](https://geminicli.com) installed and authenticated
 - [Beads](https://github.com/steveyegge/beads) for task management (`cargo install beads`)
 - `jq` for JSON parsing (`brew install jq` on macOS)
 
@@ -50,8 +50,8 @@ chmod +x ralph.sh
 To use the two-layer setup with `/ralph-pm`:
 
 ```bash
-mkdir -p .claude/skills
-curl -o .claude/skills/ralph-pm/SKILL.md --create-dirs https://raw.githubusercontent.com/chrismdp/ralph/main/skills/ralph-pm/SKILL.md
+mkdir -p .gemini/skills
+curl -o .gemini/skills/ralph-pm/SKILL.md --create-dirs https://raw.githubusercontent.com/chrismdp/ralph/main/skills/ralph-pm/SKILL.md
 ```
 
 ### Step 4: Customise RALPH.md
@@ -80,7 +80,7 @@ bd create "Create logout endpoint"
 
 Ralph will:
 1. Check for in-progress or ready beads
-2. Spawn a Claude session to work on one bead
+2. Spawn a Gemini session to work on one bead
 3. Wait for `RALPH_DONE` signal
 4. Repeat until max iterations or no work remains
 
@@ -99,7 +99,7 @@ For longer sessions, run Ralph PM alongside the build loop:
 
 **Terminal 2 (Ralph PM):**
 ```bash
-claude /ralph-pm
+gemini /ralph-pm
 # Then interactively add beads, discuss priorities, handle blocked items
 ```
 
@@ -113,7 +113,7 @@ branch = "beads-sync"
 
 ## Token Usage
 
-Ralph burns through tokens. Running this setup continuously requires a Max20 plan or higher. The value is worth it if you're building something real.
+Ralph burns through tokens. Running this setup continuously requires a Gemini Pro plan or higher. The value is worth it if you're building something real.
 
 ## Tips from Production Use
 
@@ -123,11 +123,11 @@ Ralph burns through tokens. Running this setup continuously requires a Max20 pla
 
 **Symlink your notes.** If you have a second brain or documentation vault, symlink relevant files into the repo so Ralph can look things up.
 
-**The output parsing is ugly.** Most of `ralph.sh` is parsing Claude's streaming JSON to show what's happening. The `-p` flag doesn't give verbose output, so you construct your own display. It's not perfect but it works.
+**The output parsing is ugly.** Most of `ralph.sh` is parsing Gemini's streaming JSON to show what's happening. The `-p` flag doesn't give verbose output, so you construct your own display. It's not perfect but it works.
 
 ## Files
 
-- `ralph.sh` - The outer loop that spawns Claude sessions
+- `ralph.sh` - The outer loop that spawns Gemini sessions
 - `RALPH.md` - Instructions for each "engineer" session
 - `skills/ralph-pm/SKILL.md` - The product manager skill
 
@@ -138,14 +138,14 @@ Ralph burns through tokens. Running this setup continuously requires a Max20 pla
 Improvements from 2 months of production use on a real project.
 
 **ralph.sh:**
-- Ctrl-C now works properly. Added cleanup trap that tracks and kills the Claude process on interrupt.
-- Switched from pipe to FIFO-based streaming. Bash pipes block signals, so Ctrl-C was unreliable. The FIFO lets claude run as a tracked background process that the trap can actually kill.
+- Ctrl-C now works properly. Added cleanup trap that tracks and kills the Gemini process on interrupt.
+- Switched from pipe to FIFO-based streaming. Bash pipes block signals, so Ctrl-C was unreliable. The FIFO lets gemini run as a tracked background process that the trap can actually kill.
 - Added `--chrome` flag for headless browser access during verification.
-- Now handles the `result` message type from Claude CLI stream-json output (final success/error status was being silently dropped).
+- Now handles the `result` message type from Gemini CLI stream-json output (final success/error status was being silently dropped).
 - Unicode symbols replace ASCII for cleaner terminal output.
 
 **RALPH.md:**
-- Added "Permission Denied Errors" section. Agents in `acceptEdits` mode hit permission walls and retry forever. Now: after 3+ denials, block the bead and move on.
+- Added "Permission Denied Errors" section. Agents in `yolo` mode hit permission walls and retry forever. Now: after 3+ denials, block the bead and move on.
 - Added `bd sync` step before exit signal. Without this, completed beads weren't reaching the PM layer.
 
 ## Related
