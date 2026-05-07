@@ -83,7 +83,7 @@ while [ $ITERATION -lt $MAX_ITERATIONS ]; do
     FIFO=$(mktemp -u /tmp/ralph-fifo-XXXXXX)
     mkfifo "$FIFO"
 
-    opencode run "Read @RALPH.md and follow the instructions. Pick up where the last engineer left off. Complete ONE bead." --format json --dangerously-skip-permissions > "$FIFO" 2>/dev/null &
+    opencode run "Read @RALPH.md and follow the instructions. Pick up where the last engineer left off. Complete ONE bead." --model opencode-go/deepseek-v4-flash --format json --dangerously-skip-permissions > "$FIFO" 2>/dev/null &
     OPENCODE_PID=$!
 
     while read -r line; do
